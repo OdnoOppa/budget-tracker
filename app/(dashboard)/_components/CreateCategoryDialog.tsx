@@ -1,5 +1,3 @@
-
-//createCategoryDialog.tsx
 import React, { useState, useCallback, ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,93 +9,90 @@ import { TransactionType } from "@/lib/types";
 import { Category } from "@prisma/client";
 import { CreateCategory } from "../_actions/categories";
 import { cn } from "@/lib/utils";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
+import {
+    Form, FormControl, FormField, FormItem, FormLabel, FormDescription
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import Picker from "@emoji-mart/react";
 import { useTheme } from "next-themes";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import {
+    Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle,
+    DialogDescription, DialogFooter, DialogClose
+} from "@/components/ui/dialog";
 import { Loader2, PlusSquare, CircleOff } from "lucide-react";
 import { z } from "zod";
 import data from "@emoji-mart/data";
 
+// @author Erdenesuren
 
-
-
-
-
+// Props-ийн төрлийг тодорхойлно
 type CreateCategorySchemaType = z.infer<typeof CreateCategorySchema>;
 
 interface Props {
-    type: "income" | "expense";
-    onSuccessCallback: (category: Category) => void;
-    trigger?: ReactNode;
+    type: "income" | "expense"; // Орлого эсвэл зарлагын төрөл
+    onSuccessCallback: (category: Category) => void; // Амжилттай үүсгэсний callback
+    trigger?: ReactNode; // Гаднаас өгч болох trigger
 }
 
+// Шинэ категори үүсгэх диалог компонент
 function CreateCategoryDialog({ type, onSuccessCallback, trigger }: Props) {
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(false); // Диалогыг онгойлгох эсвэл хаах төлөв
+    const queryClient = useQueryClient(); // Query санах ойг шинэчлэхэд ашиглана
+    const theme = useTheme(); // Theme (хар эсвэл цагаан горим)
+
+    // React Hook Form ашиглаж формын төлөвийг удирдана
     const form = useForm<CreateCategorySchemaType>({
-        resolver: zodResolver(CreateCategorySchema),
+        resolver: zodResolver(CreateCategorySchema), // Form шалгалт (Zod ашигласан)
         defaultValues: {
-            type,
+            type, // Төрлийг анхдагчаар онооно
         },
     });
 
-    const queryClient = useQueryClient();
-    const theme = useTheme();
-
+    // Категори үүсгэх мутаци
     const { mutate, isPending } = useMutation<
-    { createdAt: Date; name: string; userId: string; icon: string; type: string } | undefined, // mutation result type
-    Error, // error type
-    { name: string; icon: string; type: "expense" | "income" } // variables type
->({
-    mutationFn: CreateCategory,
-    onSuccess: async (data) => {
-        if (data) {
-            form.reset({
-                name: "",
-                icon: "",
-                type,
-            });
+        { createdAt: Date; name: string; userId: string; icon: string; type: string } | undefined, // Мутацийн үр дүнгийн төрөл
+        Error, // Алдааны төрөл
+        { name: string; icon: string; type: "expense" | "income" } // Мутацид дамжуулах өгөгдлийн төрөл
+    >({
+        mutationFn: CreateCategory, // API дуудлагын функц
+        onSuccess: async (data) => {
+            if (data) {
+                form.reset({ name: "", icon: "", type }); // Формыг цэвэрлэнэ
+                toast.success(`Category ${data.name} created successfully ✌️`, { id: "create-category" });
+                
+                // Query-ийг дахин шинэчилнэ
+                await queryClient.invalidateQueries({ queryKey: ["categories"] });
+                setOpen(false); // Диалогыг хаана
+            }
+        },
+        onError: () => {
+            toast.error("Something went wrong", { id: "create-category" }); // Алдаа гарсан үед
+        },
+    });
 
-            toast.success(`Category ${data.name} created successfully ✌️`, {
-                id: "create-category",
-            });
-
-            onSuccessCallback(data);
-
-            await queryClient.invalidateQueries({
-                queryKey: ["categories"],
-            });
-
-            setOpen((prev) => !prev);
-        }
-    },
-    onError: () => {
-        toast.error("Something went wrong", {
-            id: "create-category",
-        });
-    },
-});
-
+    // Submit хийх функц
     const onSubmit = useCallback(
         (values: CreateCategorySchemaType) => {
-            toast.loading("Creating category...", {
-                id: "create-category",
-            });
-            mutate(values);
+            toast.loading("Creating category...", { id: "create-category" }); // Хэрэглэгчид анхааруулга харуулна
+            mutate(values); // Мутаци дуудах
         },
         [mutate]
     );
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
+            {/* Диалогыг нээх trigger */}
             <DialogTrigger asChild>
-              { trigger ? trigger : <Button variant="ghost" className="flex items-center justify-start border-separate rounded-none border-b px-3 py-3 text-muted-foreground">
-                    <PlusSquare className="mr-2 h-4 w-4" />
-                    Create new
-                </Button>}
+                {trigger ? trigger : (
+                    <Button variant="ghost" className="flex items-center justify-start border-separate rounded-none border-b px-3 py-3 text-muted-foreground">
+                        <PlusSquare className="mr-2 h-4 w-4" />
+                        Create new
+                    </Button>
+                )}
             </DialogTrigger>
+
+            {/* Диалогын агуулга */}
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>
@@ -110,8 +105,11 @@ function CreateCategoryDialog({ type, onSuccessCallback, trigger }: Props) {
                     <DialogDescription>
                         Categories are used to group your transactions
                     </DialogDescription>
+
+                    {/* Формын агуулга */}
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                            {/* Нэр оруулах талбар */}
                             <FormField
                                 control={form.control}
                                 name="name"
@@ -128,6 +126,7 @@ function CreateCategoryDialog({ type, onSuccessCallback, trigger }: Props) {
                                 )}
                             />
 
+                            {/* Икон сонгох хэсэг */}
                             <FormField
                                 control={form.control}
                                 name="icon"
@@ -157,9 +156,10 @@ function CreateCategoryDialog({ type, onSuccessCallback, trigger }: Props) {
                                                         )}
                                                     </Button>
                                                 </PopoverTrigger>
+                                                {/* Emoji сонгох цэс */}
                                                 <PopoverContent className="w-full">
                                                     <Picker
-                                                        data={data} // Ensure `data` is defined or passed
+                                                        data={data}
                                                         theme={theme.resolvedTheme}
                                                         onEmojiSelect={(emoji: { native: string }) => {
                                                             field.onChange(emoji.native);
@@ -176,14 +176,14 @@ function CreateCategoryDialog({ type, onSuccessCallback, trigger }: Props) {
                             />
                         </form>
                     </Form>
+
+                    {/* Footer товчлуурууд */}
                     <DialogFooter>
                         <DialogClose asChild>
                             <Button
                                 type="button"
                                 variant="secondary"
-                                onClick={() => {
-                                    form.reset();
-                                }}
+                                onClick={() => form.reset()}
                             >
                                 Cancel
                             </Button>
